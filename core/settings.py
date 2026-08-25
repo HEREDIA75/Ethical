@@ -98,3 +98,9 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Necessário se usar painel admin ou formulários
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.railway.app",
+    "https://*.up.railway.app",
+]
