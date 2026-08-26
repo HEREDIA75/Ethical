@@ -9,6 +9,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans">
 
+    {% verbatim %}
     <div id="app" class="max-w-6xl mx-auto py-10 px-4">
         <header class="mb-10 text-center">
             <h1 class="text-4xl font-extrabold text-indigo-600">Ethical Dashboard</h1>
@@ -111,6 +112,7 @@
 
         </div>
     </div>
+    {% endverbatim %}
 
     <script>
         const { createApp } = Vue;
@@ -138,20 +140,28 @@
             },
             methods: {
                 async calcularPrecificacao() {
-                    const res = await fetch('/api/precificar/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.formPrecificacao)
-                    });
-                    if (res.ok) this.resPrecificacao = await res.json();
+                    try {
+                        const res = await fetch('/api/precificar/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formPrecificacao)
+                        });
+                        if (res.ok) this.resPrecificacao = await res.json();
+                    } catch (err) {
+                        console.error("Erro ao calcular precificação:", err);
+                    }
                 },
                 async calcularViabilidade() {
-                    const res = await fetch('/api/viabilidade/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.formViabilidade)
-                    });
-                    if (res.ok) this.resViabilidade = await res.json();
+                    try {
+                        const res = await fetch('/api/viabilidade/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formViabilidade)
+                        });
+                        if (res.ok) this.resViabilidade = await res.json();
+                    } catch (err) {
+                        console.error("Erro ao calcular viabilidade:", err);
+                    }
                 }
             }
         }).mount('#app');
