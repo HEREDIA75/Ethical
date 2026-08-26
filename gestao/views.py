@@ -1,8 +1,16 @@
 from decimal import Decimal
+from django.db import connection
 from django.shortcuts import render
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from .models import (
+    ProdutoServico,
+    ProjetoEstudantil,
+    ResumoProjetoView,
+    SimulacaoViabilidade,
+)
 
 # ==========================================
 # SERIALIZERS (Validação dos dados)
@@ -10,14 +18,15 @@ from rest_framework.views import APIView
 
 
 class PrecificacaoSerializer(serializers.Serializer):
+    projeto_id = serializers.IntegerField(required=False, allow_null=True)
     nome_produto = serializers.CharField(
-        max_length=255, required=False, allow_blank=True, default=""
+        max_length=100, required=False, allow_blank=True, default="Produto Exemplo"
     )
     custo_variavel = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal("0.00")
+        max_digits=10, decimal_places=2, min_value=Decimal("0.00")
     )
     custo_fixo_rateado = serializers.DecimalField(
-        max_digits=12,
+        max_digits=10,
         decimal_places=2,
         min_value=Decimal("0.00"),
         default=Decimal("0.00"),
@@ -42,6 +51,7 @@ class PrecificacaoSerializer(serializers.Serializer):
 
 
 class ViabilidadeSerializer(serializers.Serializer):
+    projeto_id = serializers.IntegerField(required=False, allow_null=True)
     investimento_inicial = serializers.DecimalField(
         max_digits=12, decimal_places=2, min_value=Decimal("0.00")
     )
@@ -49,13 +59,13 @@ class ViabilidadeSerializer(serializers.Serializer):
         max_digits=12, decimal_places=2, min_value=Decimal("0.00")
     )
     lucro_liquido_unitario = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal("0.00")
+        max_digits=10, decimal_places=2, min_value=Decimal("0.00")
     )
     vendas_estimadas_mes = serializers.IntegerField(min_value=0)
 
 
 # ==========================================
-# VIEWS (Regra de negócio)
+# VIEWS (API & Persistência)
 # ==========================================
 
 
@@ -71,13 +81,35 @@ class PrecificarAPIView(APIView):
         impostos_pct = d["impostos_pct"]
         margem_pct = d["margem_lucro_pct"]
 
-        denominador = Decimal("1") - ((impostos_pct + margem_pct) / Decimal("100"))
-        preco_venda = (custo_var + custo_fixo) / denominador
+        # 1. Uso da Function SQL (ou fallback via Python caso o BD esteja limpo)
+        preco_venda = None
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT fn_calcular_preco_venda(%s, %s, %s);",
+                    [custo_var + custo_fixo, margem_pct, impostos_pct],
+                )
+                preco_venda = Decimal(str(cursor.fetchone()[0]))
+        except Exception:
+            denominador = Decimal("1") - ((impostos_pct + margem_pct) / Decimal("100"))
+            preco_venda = (custo_var + custo_fixo) / denominador
+
         margem_contrib = (
             preco_venda - custo_var - (preco_venda * (impostos_pct / Decimal("100")))
         )
-
         ponto_equilibrio = int(custo_fixo / margem_contrib) if margem_contrib > 0 else 0
+
+        # 2. Persistência no banco (se projeto_id for informado)
+        if d.get("projeto_id"):
+            projeto = ProjetoEstudantil.objects.filter(id=d["projeto_id"]).first()
+            if projeto:
+                ProdutoServico.objects.create(
+                    projeto=projeto,
+                    nome=d.get("nome_produto", "Sem Nome"),
+                    custo_variavel_unitario=custo_var,
+                    margem_lucro_desejada=margem_pct,
+                    aliquota_imposto=impostos_pct,
+                )
 
         return Response(
             {
@@ -108,23 +140,59 @@ class ViabilidadeAPIView(APIView):
         ponto_equilibrio = (
             int(custos_fixos / lucro_unitario) if lucro_unitario > 0 else 0
         )
-
         payback = (
             float(investimento / lucro_mensal_estimado)
             if lucro_mensal_estimado > 0
             else None
         )
+        viavel = lucro_mensal_estimado > 0
+
+        # Persistência no banco (se projeto_id for informado)
+        if d.get("projeto_id"):
+            projeto = ProjetoEstudantil.objects.filter(id=d["projeto_id"]).first()
+            if projeto:
+                SimulacaoViabilidade.objects.create(
+                    projeto=projeto,
+                    projecao_vendas_mensal=vendas_mes,
+                    preco_venda_calculado=lucro_unitario,
+                    ponto_equilibrio_unidades=ponto_equilibrio,
+                    payback_meses=Decimal(str(round(payback, 2))) if payback else None,
+                )
 
         return Response(
             {
                 "lucro_mensal_estimado": round(float(lucro_mensal_estimado), 2),
                 "ponto_equilibrio_unidades": ponto_equilibrio,
                 "payback_meses": round(payback, 2) if payback is not None else None,
-                "viavel": lucro_mensal_estimado > 0,
+                "viavel": viavel,
             },
             status=status.HTTP_200_OK,
         )
 
 
+# ==========================================
+# PAINEL & CONSULTAS AVANÇADAS (JOIN, BETWEEN, VIEW)
+# ==========================================
+
+
 def painel_view(request):
-    return render(request, "gestao/painel.html")
+    # Consulta 1: JOIN (Navegação ORM entre tabelas Produto e Projeto)
+    produtos_com_projeto = ProdutoServico.objects.select_related("projeto").all()[:10]
+
+    # Consulta 2: BETWEEN (Filtrando investimento entre R$ 1.000 e R$ 50.000)
+    projetos_faixa_investimento = ProjetoEstudantil.objects.filter(
+        investimento_inicial__range=(1000.00, 50000.00)
+    )
+
+    # Consulta 3: VIEW SQL Mapeada (vw_resumo_projetos)
+    resumo_projetos_view = ResumoProjetoView.objects.all()
+
+    return render(
+        request,
+        "gestao/painel.html",
+        {
+            "produtos": produtos_com_projeto,
+            "projetos_faixa": projetos_faixa_investimento,
+            "resumo_views": resumo_projetos_view,
+        },
+    )

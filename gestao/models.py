@@ -9,6 +9,10 @@ class ProjetoEstudantil(models.Model):
     custo_fixo_mensal = models.DecimalField(max_digits=12, decimal_places=2)
     criado_em = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Projeto Estudantil"
+        verbose_name_plural = "Projetos Estudantis"
+
     def __str__(self):
         return f"{self.titulo} - {self.aluno_responsavel}"
 
@@ -21,13 +25,20 @@ class ProdutoServico(models.Model):
     custo_variavel_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     margem_lucro_desejada = models.DecimalField(max_digits=5, decimal_places=2)  # em %
     aliquota_imposto = models.DecimalField(max_digits=5, decimal_places=2)  # em %
+    ultima_atualizacao = models.DateTimeField(auto_now=True)  # Atualizado via Trigger
+
+    class Meta:
+        verbose_name = "Produto/Serviço"
+        verbose_name_plural = "Produtos e Serviços"
 
     def __str__(self):
-        return self.nome
+        return f"{self.nome} ({self.projeto.titulo})"
 
 
 class SimulacaoViabilidade(models.Model):
-    projeto = models.ForeignKey(ProjetoEstudantil, on_delete=models.CASCADE)
+    projeto = models.ForeignKey(
+        ProjetoEstudantil, on_delete=models.CASCADE, related_name="simulacoes"
+    )
     projecao_vendas_mensal = models.IntegerField()
     preco_venda_calculado = models.DecimalField(max_digits=10, decimal_places=2)
     ponto_equilibrio_unidades = models.IntegerField(null=True, blank=True)
@@ -35,3 +46,20 @@ class SimulacaoViabilidade(models.Model):
         max_digits=5, decimal_places=2, null=True, blank=True
     )
     criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Simulação de Viabilidade"
+        verbose_name_plural = "Simulações de Viabilidade"
+
+
+# Modelo unmanaged para mapear a VIEW SQL diretamente no Django ORM
+class ResumoProjetoView(models.Model):
+    projeto_id = models.IntegerField(primary_key=True)
+    titulo = models.CharField(max_length=150)
+    aluno_responsavel = models.CharField(max_length=100)
+    total_produtos = models.IntegerField()
+    investimento_inicial = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        managed = False
+        db_table = "vw_resumo_projetos"
