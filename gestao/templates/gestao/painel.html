@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethical - Gestão & Precificação</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+    <div class="max-w-6xl mx-auto py-10 px-4">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-extrabold text-indigo-600">Ethical</h1>
+            <p class="text-gray-600 mt-2">Plataforma de Precificação e Análise de Viabilidade Estudantil</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Form 1: Precificação -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                <h2 class="text-xl font-bold mb-4 text-indigo-700">Calculadora de Precificação</h2>
+                <form id="form-precificacao" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nome do Produto</label>
+                        <input type="text" id="p_nome" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Custo Variável (R$)</label>
+                            <input type="number" step="0.01" id="p_custo_var" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Custo Fixo Rateado (R$)</label>
+                            <input type="number" step="0.01" id="p_custo_fixo" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Impostos (%)</label>
+                            <input type="number" step="0.1" id="p_impostos" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Margem Lucro (%)</label>
+                            <input type="number" step="0.1" id="p_margem" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Calcular Preço</button>
+                </form>
+
+                <div id="res-precificacao" class="mt-6 p-4 bg-indigo-50 rounded-lg hidden">
+                    <h3 class="font-bold text-indigo-900">Resultado:</h3>
+                    <p class="mt-1">Preço Sugerido: <strong id="out-preco" class="text-green-600"></strong></p>
+                    <p>Margem Contribuição: <strong id="out-margem"></strong></p>
+                    <p>Ponto de Equilíbrio: <strong id="out-pe-prod"></strong> un.</p>
+                </div>
+            </div>
+
+            <!-- Form 2: Viabilidade -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                <h2 class="text-xl font-bold mb-4 text-emerald-700">Análise de Viabilidade</h2>
+                <form id="form-viabilidade" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Investimento Inicial (R$)</label>
+                            <input type="number" step="0.01" id="v_investimento" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Custos Fixos/Mês (R$)</label>
+                            <input type="number" step="0.01" id="v_custos_fixos" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Lucro Liq. Unitário (R$)</label>
+                            <input type="number" step="0.01" id="v_lucro_unit" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Vendas Estimadas/Mês</label>
+                            <input type="number" id="v_vendas_mes" required class="mt-1 w-full border rounded-md p-2 border-gray-300">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded-md font-bold hover:bg-emerald-700">Analisar Viabilidade</button>
+                </form>
+
+                <div id="res-viabilidade" class="mt-6 p-4 bg-emerald-50 rounded-lg hidden">
+                    <h3 class="font-bold text-emerald-900">Resultado:</h3>
+                    <p class="mt-1">Lucro Mensal Estimado: <strong id="out-lucro"></strong></p>
+                    <p>Ponto de Equilíbrio: <strong id="out-pe-viab"></strong> un.</p>
+                    <p>Payback Estimado: <strong id="out-payback"></strong> meses</p>
+                    <p class="mt-2">Status: <span id="out-status" class="px-2 py-1 text-xs font-bold rounded"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JS para consumir Endpoint Precificar
+        document.getElementById('form-precificacao').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                projeto_id: 1,
+                nome_produto: document.getElementById('p_nome').value,
+                custo_variavel: parseFloat(document.getElementById('p_custo_var').value),
+                custo_fixo_rateado: parseFloat(document.getElementById('p_custo_fixo').value),
+                impostos_pct: parseFloat(document.getElementById('p_impostos').value),
+                margem_lucro_pct: parseFloat(document.getElementById('p_margem').value)
+            };
+            const res = await fetch('/api/precificar/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(res.ok) {
+                document.getElementById('res-precificacao').classList.remove('hidden');
+                document.getElementById('out-preco').innerText = `R$ ${data.preco_venda_sugerido}`;
+                document.getElementById('out-margem').innerText = `R$ ${data.margem_contribuição_reais}`;
+                document.getElementById('out-pe-prod').innerText = data.ponto_equilibrio_unidades;
+            }
+        });
+
+        // JS para consumir Endpoint Viabilidade
+        document.getElementById('form-viabilidade').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                investimento_inicial: parseFloat(document.getElementById('v_investimento').value),
+                custos_fixos_mensais: parseFloat(document.getElementById('v_custos_fixos').value),
+                lucro_liquido_unitario: parseFloat(document.getElementById('v_lucro_unit').value),
+                vendas_estimadas_mes: parseInt(document.getElementById('v_vendas_mes').value)
+            };
+            const res = await fetch('/api/viabilidade/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(res.ok) {
+                document.getElementById('res-viabilidade').classList.remove('hidden');
+                document.getElementById('out-lucro').innerText = `R$ ${data.lucro_mensal_estimado}`;
+                document.getElementById('out-pe-viab').innerText = data.ponto_equilibrio_unidades;
+                document.getElementById('out-payback').innerText = data.payback_meses ?? 'N/A';
+                
+                const st = document.getElementById('out-status');
+                st.innerText = data.viavel ? 'VIÁVEL' : 'INVIÁVEL';
+                st.className = data.viavel ? 'bg-green-200 text-green-900 px-2 py-1 text-xs font-bold rounded' : 'bg-red-200 text-red-900 px-2 py-1 text-xs font-bold rounded';
+            }
+        });
+    </script>
+</body>
+</html>

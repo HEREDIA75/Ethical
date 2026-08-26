@@ -16,10 +16,12 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
-from gestao.api import api
+from django.urls import path, include
+from gestao.views import painel_view, PrecificarAPIView, ViabilidadeAPIView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/", api.urls),  # Documentação Swagger gerada em /api/docs
+    path("", painel_view, name="painel"),
+    path("api/precificar/", PrecificarAPIView.as_view(), name="api-precificar"),
+    path("api/viabilidade/", ViabilidadeAPIView.as_view(), name="api-viabilidade"),
 ]
