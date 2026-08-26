@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     # Libs de terceiros
     "corsheaders",
     # Apps do projeto
+    "rest_framework",
     "gestao",
 ]
 

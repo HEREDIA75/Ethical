@@ -3,6 +3,7 @@ asgiref==3.12.1
 Django==6.1
 django-cors-headers==4.9.0
 django-ninja==1.6.3
+djangorestframework==3.18.0
 gunicorn==26.2.0
 mysqlclient==2.2.8
 pydantic==2.13.4
